@@ -1,97 +1,27 @@
-cmake_minimum_required(VERSION 2.8.3)
+# Install launch files in launch directory
+INSTALL_DEMO_LAUNCH_FILES(deburring
+  LAUNCHFILES
+  2d_navigation.launch
+  world_setup.launch
+  estimation.launch
+  estimation_realsense.launch
+  simulation.launch
+  demo.launch
 
-set(CXX_DISABLE_WERROR TRUE)
+  SCRIPTS
+  publish_initial_pose.py
+  )
 
-set(PROJECT_NAME agimus_demos)
-set(PROJECT_DESCRIPTION "Demonstration of Agimus with various robots")
-set(PROJECT_URL "https://github.com/agimus/agimus-demos")
-set(PROJECT_USE_CMAKE_EXPORT TRUE)
-
-include(cmake/base.cmake)
-include(cmake/test.cmake)
-include(cmake/python.cmake)
-
-compute_project_args(PROJECT_ARGS LANGUAGES CXX)
-project(${PROJECT_NAME} ${PROJECT_ARGS})
-
-add_project_dependency (dynamic-graph-python 4 REQUIRED)
-add_project_dependency (dynamic_graph_bridge 3 REQUIRED)
-
-## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
-
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  roslaunch
-)
-
-catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES agimus_demos
-#  CATKIN_DEPENDS roslaunch
-#  DEPENDS system_lib
-)
-find_package(Eigen3)
-
-MACRO(INSTALL_DEMO_LAUNCH_FILES DEMO)
-  set(options)
-  set(oneValueArgs)
-  set(multiValueArgs LAUNCHFILES SCRIPTS)
-  cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-  FILE(RELATIVE_PATH robot ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  MESSAGE(STATUS "Add demonstration ${robot}/${DEMO}")
-  FOREACH (launch_file ${ARG_LAUNCHFILES})
-    install(FILES
-      ${DEMO}/${launch_file}
-      DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
-      RENAME ${robot}_${DEMO}_${launch_file}
-    )
-  ENDFOREACH ()
-  FOREACH (script_file ${ARG_SCRIPTS})
-    install(PROGRAMS "${DEMO}/${script_file}"
-      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-      RENAME ${robot}_${DEMO}_${script_file})
-  ENDFOREACH ()
-ENDMACRO()
-
-OPTION(USE_TALOS "Install files for talos robot" ON)
-OPTION(USE_TIAGO "Install files for tiago robot" ON)
-OPTION(USE_UR10 "Install files for UR10 robot" ON)
-
-IF(USE_TALOS)
-  ADD_SUBDIRECTORY(talos)
-ENDIF()
-IF(USE_TIAGO)
-  ADD_SUBDIRECTORY(tiago)
-  add_subdirectory(tests)
-ENDIF()
-IF(USE_UR10)
-  ADD_SUBDIRECTORY(ur10)
-ENDIF()
-
-add_subdirectory(src)
-
-# Install other files with the same hierarchy as here.
-install(DIRECTORY talos tiago urdf srdf meshes worlds
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  FILES_MATCHING
-  PATTERN "*"
-  PATTERN "*.launch" EXCLUDE
-)
-
-INSTALL(FILES plugin.xml
-    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
-
-install(PROGRAMS
-  scripts/gazebo_object_to_tf.py
-  scripts/visual_tag_initializer.py
-  scripts/calibration_frames_grabber.py
-  scripts/publish_constants.py
-  scripts/group_of_tags.py
-  scripts/publishwmc.py
-  scripts/publish_camera_extrinsics.py
-  scripts/rqt_tooltip_calibration
-  scripts/rqt_contact_calibration
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/scripts)
+find_package(pal_navigation_cfg_tiago)
+if (pal_navigation_cfg_tiago_FOUND)
+  set(pal_navigation_cfg_tiago_SHARE ${pal_navigation_cfg_tiago_PREFIX}/share/pal_navigation_cfg_tiago)
+  install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory \"${CMAKE_INSTALL_PREFIX}/${CATKIN_PACKAGE_SHARE_DESTINATION}/tiago/config/base/\")")
+  foreach(subdir "common" "global_planner")
+    set(filepath "${pal_navigation_cfg_tiago_SHARE}/config/base/${subdir}")
+    install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink \"${filepath}\" \"${CMAKE_INSTALL_PREFIX}/${CATKIN_PACKAGE_SHARE_DESTINATION}/tiago/config/base/${subdir}\")")
+  endforeach()
+  install(FILES common/teb/local_planner.yaml
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/tiago/config/base/teb)
+  install(FILES common/pal/local_planner.yaml
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/tiago/config/base/pal)
+endif ()
